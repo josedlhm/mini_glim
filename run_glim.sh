@@ -16,6 +16,6 @@ echo "[*] Running GLIM..."
 echo "    Bag:     $BAG_DIR"
 echo "    Config:  $GLIM_CONFIG"
 
-ros2 run glim_ros glim_rosbag "$BAG_DIR" --ros-args -p config_path:="$GLIM_CONFIG"
+ros2 run glim_ros glim_rosbag "$BAG_DIR" --ros-args -p config_path:="$GLIM_CONFIG" -p auto_quit:=true
 
 echo "[✓] GLIM finished successfully."
