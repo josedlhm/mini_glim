@@ -1,0 +1,5 @@
+{
+  "in_tum": "glim/traj_lidar.txt",
+  "out_rt_mm": "glim/poses_r_t_mm.txt",
+  "extrinsics": "config/extrinsics_lidar_camera.json"
+}
