@@ -73,7 +73,8 @@ fi
 
 # 3) Convert to row-major 3x4 [R|t] with translation in mm
 echo "[*] Converting LiDAR -> Camera [R|t]_mm ..."
-python3 "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$REPO_ROOT/config/glim_mini.json"
+source .venv/bin/activate
+python "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$REPO_ROOT/config/glim_mini.json"
 
 echo "[✓] Done."
 echo "    poses_r_t_mm: $OUT_DIR/poses_r_t_mm.txt"
