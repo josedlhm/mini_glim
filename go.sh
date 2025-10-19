@@ -16,7 +16,7 @@ TRAJ_KIND="${TRAJ_KIND:-traj_lidar}"     # default to loop-closed LiDAR trajecto
 DUMP_DIR="/tmp/dump"                     # GLIM's documented dump location
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR="$REPO_ROOT/glim"
+OUT_DIR="$RUN_DIR/output"                # <-- save artifacts next to the bag, not in the repo
 mkdir -p "$OUT_DIR"
 
 BAG_DIR="$RUN_DIR/livox"
@@ -44,7 +44,8 @@ rm -rf "$DUMP_DIR"/* 2>/dev/null || true
 
 # 1) Run GLIM
 echo "[*] Running GLIM..."
-( cd "$OUT_DIR" && bash "$REPO_ROOT/run_glim.sh" "$BAG_DIR" "$GLIM_CONFIG" )
+# We can run from anywhere; GLIM writes to /tmp/dump per docs
+( cd "$REPO_ROOT" && bash "$REPO_ROOT/run_glim.sh" "$BAG_DIR" "$GLIM_CONFIG" )
 
 # 2) Collect the trajectory from /tmp/dump as documented
 TRAJ_SRC="$DUMP_DIR/${TRAJ_KIND}.txt"
@@ -71,10 +72,20 @@ else
   fi
 fi
 
-# 3) Convert to row-major 3x4 [R|t] with translation in mm
+# 3) Convert to row-major 3x4 [R|t] with translation in mm (write into RUN_DIR/output)
 echo "[*] Converting LiDAR -> Camera [R|t]_mm ..."
-source .venv/bin/activate
-python "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$REPO_ROOT/config/glim_mini.json"
+TMP_CFG="$(mktemp)"
+cat > "$TMP_CFG" <<EOF
+{
+  "in_tum": "$(printf '%s' "$TRAJ_DST")",
+  "out_rt_mm": "$(printf '%s' "$OUT_DIR/poses_r_t_mm.txt")",
+  "extrinsics": "$(printf '%s' "$REPO_ROOT/config/extrinsics_lidar_camera.json")"
+}
+EOF
+
+python3 "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$TMP_CFG"
+rm -f "$TMP_CFG"
 
 echo "[✓] Done."
+echo "    traj_lidar : $TRAJ_DST"
 echo "    poses_r_t_mm: $OUT_DIR/poses_r_t_mm.txt"
