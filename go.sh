@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Single entrypoint: pass the run directory (e.g., /data/outbox/2025-10-19_15-36-12)
+# go.sh — Run GLIM, fetch trajectory, then convert + match to per-frame camera poses.
 #
 # Usage:
 #   bash go.sh /data/outbox/2025-10-19_15-36-12
@@ -12,14 +12,15 @@ set -euo pipefail
 
 RUN_DIR="${1:?usage: bash go.sh /path/to/RUN_DIR}"
 GLIM_CONFIG="${GLIM_CONFIG:-/home/user/glim_config}"
-TRAJ_KIND="${TRAJ_KIND:-traj_lidar}"     # default to loop-closed LiDAR trajectory per docs
+TRAJ_KIND="${TRAJ_KIND:-traj_lidar}"     # default to loop-closed LiDAR trajectory per GLIM docs
 DUMP_DIR="/tmp/dump"                     # GLIM's documented dump location
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR="$RUN_DIR/output"                # <-- save artifacts next to the bag, not in the repo
+OUT_DIR="$RUN_DIR/output"                # save artifacts next to the bag, not in the repo
 mkdir -p "$OUT_DIR"
 
 BAG_DIR="$RUN_DIR/livox"
+CAMERAS_CSV="$RUN_DIR/cameras.csv"       # must exist: idx,cam_ts_ns,host_ts_ns
 
 # Sanity: bag dir should look like a rosbag2 directory (metadata.yaml or *.mcap)
 if [[ ! -d "$BAG_DIR" ]]; then
@@ -42,9 +43,8 @@ echo "[*] Traj kind   : $TRAJ_KIND (traj_lidar|odom_lidar|traj_imu|odom_imu)"
 mkdir -p "$DUMP_DIR"
 rm -rf "$DUMP_DIR"/* 2>/dev/null || true
 
-# 1) Run GLIM
+# 1) Run GLIM (writes to /tmp/dump per docs)
 echo "[*] Running GLIM..."
-# We can run from anywhere; GLIM writes to /tmp/dump per docs
 ( cd "$REPO_ROOT" && bash "$REPO_ROOT/run_glim.sh" "$BAG_DIR" "$GLIM_CONFIG" )
 
 # 2) Collect the trajectory from /tmp/dump as documented
@@ -72,21 +72,36 @@ else
   fi
 fi
 
-# 3) Convert to row-major 3x4 [R|t] with translation in mm (write into RUN_DIR/output)
-echo "[*] Converting LiDAR -> Camera [R|t]_mm ..."
+# 2.5) cameras.csv must exist (created by your SVO extractor or earlier step)
+if [[ ! -s "$CAMERAS_CSV" ]]; then
+  echo "[!] Missing $CAMERAS_CSV (expected CSV with columns: idx,cam_ts_ns,host_ts_ns)" >&2
+  exit 5
+fi
+
+# 3) Convert LiDAR->Camera + match to frames (single pass)
+echo "[*] Converting + matching (LiDAR->Camera, then per-frame interpolation)..."
 TMP_CFG="$(mktemp)"
 cat > "$TMP_CFG" <<EOF
 {
-  "in_tum": "$(printf '%s' "$TRAJ_DST")",
-  "out_rt_mm": "$(printf '%s' "$OUT_DIR/poses_r_t_mm.txt")",
-  "extrinsics": "$(printf '%s' "$REPO_ROOT/config/extrinsics.json")"
+  "in_tum":       "$(printf '%s' "$TRAJ_DST")",
+  "extrinsics":   "$(printf '%s' "$REPO_ROOT/config/extrinsics.json")",
+  "cameras":      "$(printf '%s' "$CAMERAS_CSV")",
+  "out_txt":      "$(printf '%s' "$OUT_DIR/poses_at_frames.txt")",
+  "out_idxs":     "$(printf '%s' "$OUT_DIR/kept_indices.txt")",
+  "out_rt_mm":    "$(printf '%s' "$OUT_DIR/poses_r_t_mm.txt")",
+  "ts_col":       "cam_ts_ns"
 }
 EOF
 
+# Python env
 source "$REPO_ROOT/.venv/bin/activate"
+
+# Run the combined convert+match script
 python "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$TMP_CFG"
 rm -f "$TMP_CFG"
 
 echo "[✓] Done."
-echo "    traj_lidar : $TRAJ_DST"
-echo "    poses_r_t_mm: $OUT_DIR/poses_r_t_mm.txt"
+echo "    traj_lidar        : $TRAJ_DST"
+echo "    poses_at_frames   : $OUT_DIR/poses_at_frames.txt   # idx cam_ts_s x_mm y_mm z_mm qx qy qz qw"
+echo "    kept_indices      : $OUT_DIR/kept_indices.txt"
+echo "    poses_r_t_mm      : $OUT_DIR/poses_r_t_mm.txt      # idx t r11 r12 r13 tx_mm r21 r22 r23 ty_mm r31 r32 r33 tz_mm"
