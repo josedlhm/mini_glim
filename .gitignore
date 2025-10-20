@@ -1,8 +1,6 @@
-
 __pycache__/
 *.pyc
-
-
 .DS_Store
-glim/
 .venv
+
+localization/glim/
