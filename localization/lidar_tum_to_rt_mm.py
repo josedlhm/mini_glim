@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 lidar_tum_to_rt_mm.py  (now: convert + match in one pass)
 
