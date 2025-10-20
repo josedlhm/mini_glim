@@ -94,7 +94,7 @@ cat > "$TMP_CFG" <<EOF
 EOF
 
 # Python env
-source ".venv/bin/activate"
+source "$REPO_ROOT/.venv/bin/activate"
 
 # Run the combined convert+match script
 python "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$TMP_CFG"
