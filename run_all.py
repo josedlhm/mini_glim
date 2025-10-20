@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import sys, subprocess
 from pathlib import Path
 
@@ -21,7 +21,7 @@ def main():
     if not svo or not svo.exists(): sys.exit("SVO not found")
 
     repo = Path(__file__).resolve().parent
-    py = repo / ".venv" / "bin" / "python"
+    py = repo / "extraction" /".venv" / "bin" / "python"
 
     # 1) extract (in-place into RUN_DIR)
     run([str(py), str(repo / "extraction" / "run_extraction.py"), str(svo), str(run_dir)])
