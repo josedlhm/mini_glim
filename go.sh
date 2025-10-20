@@ -79,11 +79,12 @@ cat > "$TMP_CFG" <<EOF
 {
   "in_tum": "$(printf '%s' "$TRAJ_DST")",
   "out_rt_mm": "$(printf '%s' "$OUT_DIR/poses_r_t_mm.txt")",
-  "extrinsics": "$(printf '%s' "$REPO_ROOT/config/extrinsics_lidar_camera.json")"
+  "extrinsics": "$(printf '%s' "$REPO_ROOT/config/extrinsics.json")"
 }
 EOF
 
-python3 "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$TMP_CFG"
+source "$REPO_ROOT/.venv/bin/activate"
+python "$REPO_ROOT/lidar_tum_to_rt_mm.py" "$TMP_CFG"
 rm -f "$TMP_CFG"
 
 echo "[✓] Done."
